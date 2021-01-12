@@ -5,9 +5,9 @@
 //0.5 added sensorValue RO char and threshold RW char.
 //0.6 Average/Filter ADC readings
 //0.7 Dynamic Serial/Hostname/AP based off ESP.getChipID()
+//0.8 Save threshold to EEPROM. Not actually persisting across reboots.
 
 //TODO: Dynamic Homekit Name based off ESP.getChipID()
-//TODO: Save threshold to EEPROM.
 
 #include <ArduinoOTA.h>
 #include <Arduino.h>
@@ -16,6 +16,10 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
+#include <ESP_EEPROM.h>
+#include <stdlib.h>
+#include <homekit/homekit.h>
+#include <homekit/characteristics.h>
 
 #define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
 
@@ -26,12 +30,22 @@ extern "C" homekit_server_config_t config;
 extern "C" homekit_characteristic_t cha_occupancy;
 extern "C" homekit_characteristic_t cha_sensorValue;
 extern "C" homekit_characteristic_t cha_threshold;
+extern "C" homekit_characteristic_t cha_serial;
+
+char eepromThreshold; // used for getting Threshold value into EEPROM.
+char eepromChar[4];
+int addr = 0;   //Location we want the threshold to be put in EEPROM.
+
+const char * serial_str;
 
 void setup() {
   Serial.begin(115200);
-  char out[20];
+  EEPROM.begin(512);  //Initialize EEPROM
+  
+  char out[21];
   sprintf(out, "PressureSensor-%X",ESP.getChipId());
-  const char * serial_str = out;
+  serial_str = out;
+  Serial.println( );
   Serial.println(serial_str);
   pinMode(LED_BUILTIN, OUTPUT); 
   digitalWrite(LED_BUILTIN, HIGH); // turn the LED off.
@@ -62,6 +76,16 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("OTA ready");
 
+  Serial.print("Reading threshold from EEPROM...");
+  EEPROM.get(0, eepromThreshold);
+  if(eepromThreshold = 0) {
+    Serial.println("EEPROM empty!");
+    }
+  else{
+    Serial.print("got ");
+    Serial.println(String(eepromThreshold));
+  }
+  
   homekit_setup(); 
 }
 
@@ -86,10 +110,19 @@ void homekit_loop() {
     // report sensor values every 1 seconds
     next_report_millis = t + 1 * 1000;
     homekit_report();
+    if(cha_threshold.value.int_value != eepromThreshold){
+      eepromThreshold = cha_threshold.value.int_value; //sync values
+      sprintf(eepromChar,"%ld", eepromThreshold);
+      EEPROM.put(0, eepromChar); //write to EEPROM if the value has changed
+      EEPROM.commit();                                      //////////////////////
+      eepromThreshold = atoi(eepromChar);                   //Working on this bit/
+      Serial.print("Updated eeprom threshold to ");         //////////////////////
+      Serial.println(eepromThreshold);
+    }
   }
   if (t > next_heap_millis) {
-    // show heap info every 5 seconds
-    next_heap_millis = t + 5 * 1000;
+    // show heap info every 15 seconds
+    next_heap_millis = t + 15 * 1000;
     LOG_D("Free heap: %d, HomeKit clients: %d",
           ESP.getFreeHeap(), arduino_homekit_connected_clients_count());
   }
@@ -108,10 +141,27 @@ void homekit_report() {
   }
   average = total / numReadings;  // calculate the average:
   cha_sensorValue.value.int_value = average;
-  Serial.println("sensor average = " + average);
+
   
   cha_occupancy.value.bool_value = average <= cha_threshold.value.int_value ? 0 : 1; //Logic using Threshold
   homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
   homekit_characteristic_notify(&cha_sensorValue, cha_sensorValue.value);
-  LOG_D("occupancy %u", cha_occupancy.value.bool_value);  
+  Serial.print("sensor average = ");
+  Serial.println(average);
+  Serial.print("threshold = ");
+  Serial.println(cha_threshold.value.int_value);
+  Serial.print("occupancy = ");
+  Serial.println(cha_occupancy.value.bool_value);  
+}
+
+
+//This is what's run when you press identify during Homekit setup. For some reason, not when pressing identify once paired.
+void my_accessory_identify(homekit_value_t _value) {
+  printf("Identify Accessory\n");
+  for (int i = 0; i <= 5; i++) { //start at 0, run loop and add 1, repeat until 5
+    digitalWrite(LED_BUILTIN, LOW);// turn the LED on.(Note that LOW = LED on; this is because it is active low on the ESP8266.
+    delay(100);            // wait for 0.1 second.
+    digitalWrite(LED_BUILTIN, HIGH); // turn the LED off.
+    delay(100); // wait for 0.1 second.
+  }
 }
