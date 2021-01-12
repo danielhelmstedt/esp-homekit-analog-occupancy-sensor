@@ -1,4 +1,8 @@
 # esp-homekit-analog-occupancy-sensor
+Native ESP8266 Homekit firmware for inbuilt ADC-based readings
+
+Related: HX711/Load-Cell based sensor - https://github.com/danielhelmstedt/esp-homekit-HX711-occupancy-sensor
+
 This is an ESP8266 native Homekit firmware for reading the ADC pin and exposing to Homekit. 
 The ADC pin (A0 on an ESP8266) returns a 10-bit (1024) value which varies based on capacitance across A0 and VCC. This firmware exposes the ADC reading as a custom homekit characteristic, as well as a threshold slider, to let you set the occupancy threshold as required.
 
