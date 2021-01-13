@@ -9,9 +9,9 @@
 #include <homekit/characteristics.h>
 #include <Arduino.h>
 
-//This is what's run when you press identify during Homekit setup. For some reason, not when pressing identify once paired.
+//This is what's run when you press identify during Homekit setup.
 void my_accessory_identify(homekit_value_t _value) {
-  printf("accessory identify\n");
+  printf("Identify Accessory\n");
   for (int i = 0; i <= 5; i++) { //start at 0, run loop and add 1, repeat until 5
     digitalWrite(LED_BUILTIN, LOW);// turn the LED on.(Note that LOW = LED on; this is because it is active low on the ESP8266.
     delay(100);            // wait for 0.1 second.
@@ -19,7 +19,6 @@ void my_accessory_identify(homekit_value_t _value) {
     delay(100); // wait for 0.1 second.
   }
 }
-
 
 // format: uint8; 0 ”Occupancy is not detected”, 1 ”Occupancy is detected”
 homekit_characteristic_t cha_occupancy = HOMEKIT_CHARACTERISTIC_(OCCUPANCY_DETECTED, 0);
@@ -53,11 +52,11 @@ homekit_characteristic_t cha_threshold = HOMEKIT_CHARACTERISTIC_(CUSTOM,
 homekit_accessory_t *accessories[] = {
   HOMEKIT_ACCESSORY(.id = 1, .category = homekit_accessory_category_sensor, .services = (homekit_service_t*[]) {
     HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics = (homekit_characteristic_t*[]) {
-      HOMEKIT_CHARACTERISTIC(NAME, "Pressure Sensor"),
+      HOMEKIT_CHARACTERISTIC(NAME, "Pressure Sensor Dev"),
       HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Dan Helmstedt"),
       HOMEKIT_CHARACTERISTIC(MODEL, "ESP8266 Analog"),
-      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "1234567"),
-      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.7"),
+      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "12345678"),
+      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.8"),
       HOMEKIT_CHARACTERISTIC(IDENTIFY, my_accessory_identify),
       NULL
     }),
