@@ -5,7 +5,7 @@
 //0.5 added sensorValue RO char and threshold RW char.
 //0.6 Average/Filter ADC readings
 //0.7 Dynamic Serial/Hostname/AP based off ESP.getChipID()
-//0.8 Save threshold to EEPROM. Not actually persisting across reboots.
+//0.8 Save threshold to EEPROM.
 
 //TODO: Dynamic Homekit Name based off ESP.getChipID()
 
@@ -30,25 +30,30 @@ extern "C" homekit_server_config_t config;
 extern "C" homekit_characteristic_t cha_occupancy;
 extern "C" homekit_characteristic_t cha_sensorValue;
 extern "C" homekit_characteristic_t cha_threshold;
-extern "C" homekit_characteristic_t cha_serial;
-
-char eepromThreshold; // used for getting Threshold value into EEPROM.
-char eepromChar[4];
-int addr = 0;   //Location we want the threshold to be put in EEPROM.
-
-const char * serial_str;
+ 
+struct { 
+  int eepromThreshold;
+} data;
+uint addr = 0;   //Location we want the threshold to be put in EEPROM.
 
 void setup() {
   Serial.begin(115200);
-  EEPROM.begin(512);  //Initialize EEPROM
+  Serial.println( );
   
+  //Create dynamic hostname
   char out[21];
   sprintf(out, "PressureSensor-%X",ESP.getChipId());
-  serial_str = out;
-  Serial.println( );
+  const char * serial_str = out;
   Serial.println(serial_str);
-  pinMode(LED_BUILTIN, OUTPUT); 
-  digitalWrite(LED_BUILTIN, HIGH); // turn the LED off.
+
+  //Read EEPROM
+  EEPROM.begin(512);  //Initialize EEPROM
+  EEPROM.get(addr, data);
+  Serial.print("Reading saved EEPROM Threshold - ");
+  Serial.println(String(data.eepromThreshold));
+  
+  pinMode(LED_BUILTIN, OUTPUT); //Initialize built-in LED
+  digitalWrite(LED_BUILTIN, HIGH); // turn the LED off (Active Low)
   
   WiFiManager wifiManager;
   wifiManager.autoConnect(serial_str);
@@ -75,16 +80,6 @@ void setup() {
   });
   ArduinoOTA.begin();
   Serial.println("OTA ready");
-
-  Serial.print("Reading threshold from EEPROM...");
-  EEPROM.get(0, eepromThreshold);
-  if(eepromThreshold = 0) {
-    Serial.println("EEPROM empty!");
-    }
-  else{
-    Serial.print("got ");
-    Serial.println(String(eepromThreshold));
-  }
   
   homekit_setup(); 
 }
@@ -95,10 +90,6 @@ void loop() {
   delay(10);
 }
 
-
-//==============================
-// Homekit setup and loop
-//==============================
 void homekit_setup() {
   arduino_homekit_setup(&config);
 }
@@ -110,15 +101,6 @@ void homekit_loop() {
     // report sensor values every 1 seconds
     next_report_millis = t + 1 * 1000;
     homekit_report();
-    if(cha_threshold.value.int_value != eepromThreshold){
-      eepromThreshold = cha_threshold.value.int_value; //sync values
-      sprintf(eepromChar,"%ld", eepromThreshold);
-      EEPROM.put(0, eepromChar); //write to EEPROM if the value has changed
-      EEPROM.commit();                                      //////////////////////
-      eepromThreshold = atoi(eepromChar);                   //Working on this bit/
-      Serial.print("Updated eeprom threshold to ");         //////////////////////
-      Serial.println(eepromThreshold);
-    }
   }
   if (t > next_heap_millis) {
     // show heap info every 15 seconds
@@ -128,12 +110,13 @@ void homekit_loop() {
   }
 }
 
-//Function for reading sensor and reporting to Homekit
+//Function for reading sensor and reporting to Homekit. 
 void homekit_report() {
   int numReadings = 10;
   int total = 0;
   int average = 0;
   int reading = 0;  
+
   // Take 10 readings and average them
   for (int i = 0; i <= numReadings; i++) {
     reading = analogRead(A0); // read from the sensor:
@@ -141,19 +124,35 @@ void homekit_report() {
   }
   average = total / numReadings;  // calculate the average:
   cha_sensorValue.value.int_value = average;
+  
 
+  if(cha_threshold.value.int_value == 0 && data.eepromThreshold != 0) { //If homekit threshold is 0 and EEPROM has data saved
+    cha_threshold.value.int_value = data.eepromThreshold;
+    homekit_characteristic_notify(&cha_threshold, cha_threshold.value);
+    Serial.println("Updated Homekit threshold with saved value");
+  }
   
   cha_occupancy.value.bool_value = average <= cha_threshold.value.int_value ? 0 : 1; //Logic using Threshold
   homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
   homekit_characteristic_notify(&cha_sensorValue, cha_sensorValue.value);
+  
   Serial.print("sensor average = ");
   Serial.println(average);
   Serial.print("threshold = ");
   Serial.println(cha_threshold.value.int_value);
   Serial.print("occupancy = ");
   Serial.println(cha_occupancy.value.bool_value);  
-}
 
+  //Update Threshold in EEPROM
+  if(cha_threshold.value.int_value != data.eepromThreshold){
+    data.eepromThreshold = cha_threshold.value.int_value; //sync values
+    EEPROM.put(addr, data.eepromThreshold); //prepare changes
+    EEPROM.commit(); //Perform write to flash
+    Serial.print("Threshold changed - updated EEPROM to ");
+    Serial.println(data.eepromThreshold); 
+  }
+
+}
 
 //This is what's run when you press identify during Homekit setup. For some reason, not when pressing identify once paired.
 void my_accessory_identify(homekit_value_t _value) {

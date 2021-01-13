@@ -8,7 +8,6 @@
 #include <homekit/homekit.h>
 #include <homekit/characteristics.h>
 #include <Arduino.h>
-extern char * serial_str;
 
 //This is what's run when you press identify during Homekit setup.
 void my_accessory_identify(homekit_value_t _value) {
@@ -20,7 +19,6 @@ void my_accessory_identify(homekit_value_t _value) {
     delay(100); // wait for 0.1 second.
   }
 }
-
 
 // format: uint8; 0 ”Occupancy is not detected”, 1 ”Occupancy is detected”
 homekit_characteristic_t cha_occupancy = HOMEKIT_CHARACTERISTIC_(OCCUPANCY_DETECTED, 0);
@@ -51,22 +49,15 @@ homekit_characteristic_t cha_threshold = HOMEKIT_CHARACTERISTIC_(CUSTOM,
     .min_step =  (float[]) {1},
 );
 
-//Serial homekit_characteristic_t cha_serial = HOMEKIT_CHARACTERISTIC_(SERIAL_NUMBER, serial_str);number
-//
-//    .description = "Serial Number",
-//    .format = homekit_format_string,
-//    .permissions = homekit_permissions_paired_read,
-//    .value = HOMEKIT_STRING_(serial_str),
-//);
-
 homekit_accessory_t *accessories[] = {
   HOMEKIT_ACCESSORY(.id = 1, .category = homekit_accessory_category_sensor, .services = (homekit_service_t*[]) {
     HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics = (homekit_characteristic_t*[]) {
-      HOMEKIT_CHARACTERISTIC(NAME, serial_str),
+      HOMEKIT_CHARACTERISTIC(NAME, "Pressure Sensor Dev"),
       HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Dan Helmstedt"),
       HOMEKIT_CHARACTERISTIC(MODEL, "ESP8266 Analog"),
       HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "12345678"),
       HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.8"),
+      HOMEKIT_CHARACTERISTIC(IDENTIFY, my_accessory_identify),
       NULL
     }),
     HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .primary = true, .characteristics = (homekit_characteristic_t*[]) {
