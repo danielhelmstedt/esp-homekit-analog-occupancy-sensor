@@ -10,7 +10,6 @@
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
 #include <ESP_EEPROM.h>
-#include <stdlib.h>
 #include <homekit/homekit.h>
 #include <homekit/characteristics.h>
 
@@ -136,7 +135,7 @@ void homekit_report() {
   Serial.print("threshold = ");
   Serial.println(cha_threshold.value.int_value);
   Serial.print("sensor average = ");
-  Serial.println(average)
+  Serial.println(average);
   Serial.print("occupancy = ");
   Serial.println(cha_occupancy.value.bool_value);  
 

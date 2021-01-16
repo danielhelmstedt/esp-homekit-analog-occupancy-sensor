@@ -6,6 +6,20 @@
 #include <homekit/characteristics.h>
 #include <Arduino.h>
 
+//Identify accessory by flashing LED 5x in 1 second
+void my_accessory_identify(homekit_value_t _value) {
+  printf("Identify Accessory\n");
+  for (int i = 0; i <= 5; i++) {      //start at 0, run loop and add 1, repeat until 5
+    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (In-built LED is active LOW)
+    delay(100);                       // wait for 0.1 second.
+    digitalWrite(LED_BUILTIN, HIGH);  // turn the LED off.
+    delay(100);                       // wait for 0.1 second.
+  }
+}
+
+//Sensor Value. format: int32; 1 to 1024
+homekit_characteristic_t cha_occupancy = HOMEKIT_CHARACTERISTIC_(OCCUPANCY_DETECTED, 0);
+
 //Sensor Value. format: int32; 1 to 1024
 homekit_characteristic_t cha_sensorValue = HOMEKIT_CHARACTERISTIC_(CUSTOM,
     .description = "Sensor",
@@ -45,7 +59,6 @@ homekit_accessory_t *accessories[] = {
     }),
     HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .primary = true, .characteristics = (homekit_characteristic_t*[]) {
       HOMEKIT_CHARACTERISTIC(NAME, "Pressure Sensor"),
-      HOMEKIT_CHARACTERISTIC(OCCUPANCY_DETECTED, 0),
       &cha_occupancy,
       &cha_sensorValue,
       &cha_threshold, 
@@ -61,14 +74,3 @@ homekit_server_config_t config = {
   .password = "120-41-997",
   .setupId = "1QJ8",
 };
-
-//Identify accessory by flashing LED 5x in 1 second
-void my_accessory_identify(homekit_value_t _value) {
-  printf("Identify Accessory\n");
-  for (int i = 0; i <= 5; i++) {      //start at 0, run loop and add 1, repeat until 5
-    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (In-built LED is active LOW)
-    delay(100);                       // wait for 0.1 second.
-    digitalWrite(LED_BUILTIN, HIGH);  // turn the LED off.
-    delay(100);                       // wait for 0.1 second.
-  }
-}
