@@ -6,6 +6,9 @@
 #include <homekit/characteristics.h>
 #include <Arduino.h>
 
+char serial[14] = "XXXXXX\0";
+
+
 //Identify accessory by flashing LED 5x in 1 second
 void my_accessory_identify(homekit_value_t _value) {
   printf("Identify Accessory\n");
@@ -49,11 +52,11 @@ homekit_characteristic_t cha_threshold = HOMEKIT_CHARACTERISTIC_(CUSTOM,
 homekit_accessory_t *accessories[] = {
   HOMEKIT_ACCESSORY(.id = 1, .category = homekit_accessory_category_sensor, .services = (homekit_service_t*[]) {
     HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics = (homekit_characteristic_t*[]) {
-      HOMEKIT_CHARACTERISTIC(NAME, "Pressure Sensor Dev"),
+      HOMEKIT_CHARACTERISTIC(NAME, serial),
       HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Dan Helmstedt"),
-      HOMEKIT_CHARACTERISTIC(MODEL, "ESP8266 Analog Occupancy Sensor"),
-      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "12345678"),
-      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "0.8"),
+      HOMEKIT_CHARACTERISTIC(MODEL, "ESP ADC Sensor"),
+      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, serial),
+      HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "1.0"),
       HOMEKIT_CHARACTERISTIC(IDENTIFY, my_accessory_identify),
       NULL
     }),

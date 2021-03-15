@@ -17,6 +17,7 @@ extern "C" homekit_server_config_t config;
 extern "C" homekit_characteristic_t cha_occupancy;
 extern "C" homekit_characteristic_t cha_sensorValue;
 extern "C" homekit_characteristic_t cha_threshold;
+extern "C" char serial[14];
 
 #define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
 
@@ -34,10 +35,7 @@ void setup() {
   Serial.println( );
   
   //Create dynamic hostname
-  char out[21];
-  sprintf(out, "PressureSensor-%X",ESP.getChipId());
-  const char * serial_str = out;
-  Serial.println(serial_str);
+  sprintf(serial, "ESP-ADC-%X\0", ESP.getChipId());
 
   //Read EEPROM
   EEPROM.begin(512);  //Initialize EEPROM
@@ -49,10 +47,10 @@ void setup() {
   digitalWrite(LED_BUILTIN, HIGH); // turn the LED off (Active Low)
   
   WiFiManager wifiManager;
-  wifiManager.autoConnect(serial_str);
-  WiFi.hostname(serial_str);
+  wifiManager.autoConnect(serial);
+  WiFi.hostname(serial);
 
-  ArduinoOTA.setHostname(serial_str);
+  ArduinoOTA.setHostname(serial);
   ArduinoOTA.setPassword("12041997");
   ArduinoOTA.onStart([]() {
     Serial.println("Start");
