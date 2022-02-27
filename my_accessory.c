@@ -1,27 +1,29 @@
-//   my_accessory.c
-//   Define the accessory in C language using the Macro in characteristics.h
-//   Based on the work by Mixiaoxiao (Wang Bin) - https://github.com/Mixiaoxiao/Arduino-HomeKit-ESP8266
+/*
+   my_accessory.c
+   Define the accessory in C language using the Macro in characteristics.h
+
+  Based on the work by Mixiaoxiao (Wang Bin)
+*/
 
 #include <homekit/homekit.h>
 #include <homekit/characteristics.h>
 #include <Arduino.h>
 
-char serial[14] = "XXXXXX\0";
-
-
-//Identify accessory by flashing LED 5x in 1 second
+//This is what's run when you press identify during Homekit setup. For some reason, not when pressing identify once paired.
 void my_accessory_identify(homekit_value_t _value) {
-  printf("Identify Accessory\n");
-  for (int i = 0; i <= 5; i++) {      //start at 0, run loop and add 1, repeat until 5
-    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (In-built LED is active LOW)
-    delay(100);                       // wait for 0.1 second.
-    digitalWrite(LED_BUILTIN, HIGH);  // turn the LED off.
-    delay(100);                       // wait for 0.1 second.
+  printf("accessory identify\n");
+  for (int i = 0; i <= 5; i++) { //start at 0, run loop and add 1, repeat until 5
+    digitalWrite(LED_BUILTIN, LOW);// turn the LED on.(Note that LOW = LED on; this is because it is active low on the ESP8266.
+    delay(100);            // wait for 0.1 second.
+    digitalWrite(LED_BUILTIN, HIGH); // turn the LED off.
+    delay(100); // wait for 0.1 second.
   }
 }
 
-//Sensor Value. format: int32; 1 to 1024
+
+// format: uint8; 0 ”Occupancy is not detected”, 1 ”Occupancy is detected”
 homekit_characteristic_t cha_occupancy = HOMEKIT_CHARACTERISTIC_(OCCUPANCY_DETECTED, 0);
+
 
 //Sensor Value. format: int32; 1 to 1024
 homekit_characteristic_t cha_sensorValue = HOMEKIT_CHARACTERISTIC_(CUSTOM,
@@ -32,7 +34,7 @@ homekit_characteristic_t cha_sensorValue = HOMEKIT_CHARACTERISTIC_(CUSTOM,
                  | homekit_permissions_notify,
     .min_value = (float[]) {0},
     .max_value = (float[]) {1024},
-    .min_step =  (float[]) {1}
+    .min_step =  (float[]) {1},
 );
 
 //Sensor Threshold. format: int32; 1 to 1024
@@ -46,16 +48,15 @@ homekit_characteristic_t cha_threshold = HOMEKIT_CHARACTERISTIC_(CUSTOM,
     .min_value = (float[]) {0},
     .max_value = (float[]) {1024},
     .min_step =  (float[]) {1},
-//    .value = HOMEKIT_INT_(50),
 );
 
 homekit_accessory_t *accessories[] = {
   HOMEKIT_ACCESSORY(.id = 1, .category = homekit_accessory_category_sensor, .services = (homekit_service_t*[]) {
     HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics = (homekit_characteristic_t*[]) {
-      HOMEKIT_CHARACTERISTIC(NAME, serial),
-      HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Dan Helmstedt"),
-      HOMEKIT_CHARACTERISTIC(MODEL, "ESP ADC Sensor"),
-      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, serial),
+      HOMEKIT_CHARACTERISTIC(NAME, "ESP ADC Sensor"),
+      HOMEKIT_CHARACTERISTIC(MANUFACTURER, "Daniel Helmstedt"),
+      HOMEKIT_CHARACTERISTIC(MODEL, "ESP8266"),
+      HOMEKIT_CHARACTERISTIC(SERIAL_NUMBER, "1234567"),
       HOMEKIT_CHARACTERISTIC(FIRMWARE_REVISION, "1.0"),
       HOMEKIT_CHARACTERISTIC(IDENTIFY, my_accessory_identify),
       NULL

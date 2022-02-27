@@ -1,6 +1,7 @@
-//esp-homekit-analog-occupancy-sensor.ino
-//ESP8266-based, native HomeKit pressure sensing device via ADC reading and capaticive/pressure sensitive pads
-//TODO: Dynamic Homekit Name based off ESP.getChipID()
+//  esp-homekit-analog-occupancy-sensor.ino
+//  ESP8266-based, native HomeKit pressure sensing device via ADC reading and capaticive/pressure sensitive pads
+//  Daniel Helmstedt 2022
+//  Based on the work by Mixiaoxiao (Wang Bin) - https://github.com/Mixiaoxiao/Arduino-HomeKit-ESP8266 
 
 #include <ArduinoOTA.h>
 #include <Arduino.h>
@@ -17,41 +18,28 @@ extern "C" homekit_server_config_t config;
 extern "C" homekit_characteristic_t cha_occupancy;
 extern "C" homekit_characteristic_t cha_sensorValue;
 extern "C" homekit_characteristic_t cha_threshold;
-extern "C" char serial[14];
-
-#define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__);
-
+char serialNumber[14];
 static uint32_t next_heap_millis = 0;
 static uint32_t next_report_millis = 0;
-
-//Data to save to EEPROM
-struct { 
-  int eepromThreshold;
-} data;
-uint addr = 0;
+struct {int eepromThreshold;} data; uint addr = 0; //eeprom storage config
+#define LOG_D(fmt, ...)   printf_P(PSTR(fmt "\n") , ##__VA_ARGS__); //logging config
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println( );
-  
-  //Create dynamic hostname
-  sprintf(serial, "ESP-ADC-%X\0", ESP.getChipId());
-
-  //Read EEPROM
-  EEPROM.begin(512);  //Initialize EEPROM
-  EEPROM.get(addr, data);
-  Serial.print("Reading saved EEPROM Threshold - ");
-  Serial.println(data.eepromThreshold);
-  
   pinMode(LED_BUILTIN, OUTPUT);    //Initialize built-in LED
   digitalWrite(LED_BUILTIN, HIGH); // turn the LED off (Active Low)
   
+  Serial.begin(115200);
+  Serial.println();
+  
+  //Generate hostname from MAC
+  sprintf(serialNumber, "ESP-ADC-%X\0", ESP.getChipId());
+  
   WiFiManager wifiManager;
-  wifiManager.autoConnect(serial);
-  WiFi.hostname(serial);
-
-  ArduinoOTA.setHostname(serial);
+  wifiManager.autoConnect(serialNumber);
+  WiFi.hostname(serialNumber);
+  ArduinoOTA.setHostname(serialNumber);
   ArduinoOTA.setPassword("12041997");
+  
   ArduinoOTA.onStart([]() {
     Serial.println("Start");
   });
@@ -72,26 +60,25 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("OTA ready");
   
-  homekit_setup(); 
+  arduino_homekit_setup(&config);
+
+  //EEPROM Setup
+  EEPROM.begin(512);
+  EEPROM.get(addr, data);
+  cha_threshold.value.int_value = data.eepromThreshold;
+  homekit_characteristic_notify(&cha_threshold, cha_threshold.value);
+  Serial.print("Got saved threshold = ");Serial.println(data.eepromThreshold);
 }
 
 void loop() {
   ArduinoOTA.handle();
-  homekit_loop();
-  delay(10);
-}
-
-void homekit_setup() {
-  arduino_homekit_setup(&config);
-}
-
-void homekit_loop() {
   arduino_homekit_loop();
   const uint32_t t = millis();
   if (t > next_report_millis) {
     // report sensor values every 1 seconds
     next_report_millis = t + 1 * 1000;
-    homekit_report();
+    eeprom_update();  //update eeprom if threshold has changed
+    homekit_report(); //call the report function
   }
   if (t > next_heap_millis) {
     // show heap info every 15 seconds
@@ -99,50 +86,37 @@ void homekit_loop() {
     LOG_D("Free heap: %d, HomeKit clients: %d",
           ESP.getFreeHeap(), arduino_homekit_connected_clients_count());
   }
+  delay(10);
 }
 
-
-/////////////////////////////////////////////////////////////////////
-////////Function for reading sensor and reporting to HomeKit.////////
-/////////////////////////////////////////////////////////////////////
-
 void homekit_report() {
-  int numReadings = 10;
+  int numReadings = 3;
   int total = 0;
   int average = 0;
   int reading = 0;  
-
-  // Take 10 readings and average them
   for (int i = 0; i <= numReadings; i++) {
-    reading = analogRead(A0);     // read from the sensor:
-    total = total + reading; }    // add the reading to the total:
+    reading = analogRead(A0); // read from the sensor:
+    total = total + reading; // add the reading to the total:
+  }
   average = total / numReadings;  // calculate the average:
   
-  //Initialize HomeKit value from EEPROM on boot
-  if(cha_threshold.value.int_value == 0 && data.eepromThreshold != 0) { 
-    cha_threshold.value.int_value = data.eepromThreshold;
-    homekit_characteristic_notify(&cha_threshold, cha_threshold.value);
-    Serial.println("Updated HomeKit with saved value");
-  }
-  
-  //Update HomeKit
   cha_sensorValue.value.int_value = average;
-  cha_occupancy.value.bool_value = average <= cha_threshold.value.int_value ? 0 : 1; //Determine occupancy status
-  homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
+  cha_occupancy.value.bool_value = average <= data.eepromThreshold ? 0 : 1;
   homekit_characteristic_notify(&cha_sensorValue, cha_sensorValue.value);
-  Serial.print("threshold = ");
-  Serial.println(cha_threshold.value.int_value);
-  Serial.print("sensor average = ");
-  Serial.println(average);
-  Serial.print("occupancy = ");
-  Serial.println(cha_occupancy.value.bool_value);  
+  homekit_characteristic_notify(&cha_occupancy, cha_occupancy.value);
 
-  //Update EEPROM
-  if(cha_threshold.value.int_value != data.eepromThreshold){
-    data.eepromThreshold = cha_threshold.value.int_value; //sync values
-    EEPROM.put(addr, data.eepromThreshold);               //prepare changes, if any
-    EEPROM.commit();                                      //Perform write to flash
-    Serial.print("Threshold changed - updated EEPROM to ");
-    Serial.println(data.eepromThreshold); 
+  Serial.print(" reading = ");
+  Serial.print(average);
+  Serial.print(" -- threshold = ");
+  Serial.println(data.eepromThreshold);
+  if (average >= data.eepromThreshold){Serial.println("ON");};
+}
+
+
+void eeprom_update() {
+  if(data.eepromThreshold != cha_threshold.value.int_value){
+    data.eepromThreshold = cha_threshold.value.int_value;
+    EEPROM.put(addr, data.eepromThreshold);EEPROM.commit();
+    Serial.print("Threshold updated - ");Serial.println(data.eepromThreshold); 
   }
 }
